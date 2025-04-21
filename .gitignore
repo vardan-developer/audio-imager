@@ -1,0 +1,8 @@
+*.png
+__pycache__
+audio-files
+check_artwork.py
+build
+dist
+*.spec
+.DS_Store
