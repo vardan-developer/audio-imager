@@ -13,17 +13,21 @@ class FontStyleSelector(QWidget):
     """
     fontChanged = pyqtSignal(dict)  # Signal emitted when font settings change
     
-    def __init__(self, parent=None, min_font_size=8, max_font_size=300, default_size=12):
+    def __init__(self, parent=None, min_font_size=8, max_font_size=300, default_size=12, cached_data = None):
         super().__init__(parent)
         
         # Get font mappings
         self.fonts_mapping = get_fonts_mapping()
-        
+        self.cached_data = cached_data
         # Process font data
         self.font_families = self._process_font_families()
         
         # Initialize UI
         self._init_ui(min_font_size, max_font_size, default_size)
+        
+        # Apply cached settings if available
+        if self.cached_data:
+            self.apply_cached_settings()
         
     def _process_font_families(self):
         """Process font mapping to extract font families and their variants"""
@@ -224,4 +228,72 @@ class FontStyleSelector(QWidget):
         elif case_type == "Capitalize":
             return text.title()
         else:  # Normal
-            return text 
+            return text
+    
+    def apply_cached_settings(self):
+        """Apply font settings from cached data"""
+        if not self.cached_data:
+            return
+        
+        print(f"Applying cached font settings: {self.cached_data}")
+        
+        # Set font family if available
+        if "font_family" in self.cached_data:
+            # Extract font family name from path
+            import os
+            font_path = self.cached_data["font_family"]
+            font_filename = os.path.basename(font_path).lower()
+            
+            # Try to find a matching font in our families
+            for i in range(self.family_combo.count()):
+                family_name = self.family_combo.itemText(i)
+                if family_name.lower() in font_filename or font_filename in family_name.lower():
+                    self.family_combo.setCurrentIndex(i)
+                    print(f"Setting font family to {family_name} based on {font_filename}")
+                    break
+        
+        # Set font size if available - even more explicit handling
+        if "font_size" in self.cached_data:
+            try:
+                # Handle different types of input - string, int, float
+                size_value = self.cached_data["font_size"]
+                if isinstance(size_value, str):
+                    size = int(float(size_value))
+                else:
+                    size = int(size_value)
+                    
+                print(f"Setting font size to {size} (original value: {size_value}, type: {type(size_value)})")
+                
+                # Make sure size is within allowed range
+                max_size = self.size_spin.maximum()
+                min_size = self.size_spin.minimum()
+                
+                if size > max_size:
+                    print(f"Size {size} exceeds maximum {max_size}, capping")
+                    size = max_size
+                elif size < min_size:
+                    print(f"Size {size} below minimum {min_size}, capping")
+                    size = min_size
+                    
+                # Set the value and verify it was set
+                self.size_spin.setValue(size)
+                print(f"Font size now set to: {self.size_spin.value()}")
+            except (ValueError, TypeError) as e:
+                print(f"Error setting font size: {e}")
+        
+        # Set word spacing if available
+        if "word_spacing" in self.cached_data:
+            try:
+                spacing = float(self.cached_data["word_spacing"])
+                print(f"Setting word spacing to {spacing}")
+                self.spacing_spin.setValue(spacing)
+            except (ValueError, TypeError) as e:
+                print(f"Error setting word spacing: {e}")
+        
+        # Set text casing if available
+        if "casing" in self.cached_data:
+            casing = self.cached_data["casing"]
+            index = self.casing_combo.findText(casing)
+            if index >= 0:
+                print(f"Setting text casing to {casing}")
+                self.casing_combo.setCurrentIndex(index) 

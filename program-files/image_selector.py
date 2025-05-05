@@ -10,11 +10,12 @@ class ImageSelector(QDialog):
     # Signal to emit the data when OK is clicked
     dataReady = pyqtSignal(dict)
     
-    def __init__(self, image_path, parent=None):
+    def __init__(self, image_path, parent=None, cached_data=None):
         super().__init__(parent)
         self.setWindowTitle("Image Selector")
         self.setMinimumSize(900, 600)  # Set a reasonable minimum size
         self.current_image_path = image_path
+        self.cached_data = cached_data
         self.initUI()
         
         # Set the initial image after UI is initialized
@@ -140,6 +141,30 @@ class ImageSelector(QDialog):
         # Connect signals
         self.reset_button.clicked.connect(self.reset_all)
         self.ok_button.clicked.connect(self.on_ok_clicked)
+        
+        # Apply cached settings if available
+        if self.cached_data and isinstance(self.cached_data, dict):
+            self.apply_cached_settings()
+    
+    def apply_cached_settings(self):
+        """Apply cached settings to UI elements"""
+        if 'aspect_ratio_option' in self.cached_data:
+            option = self.cached_data['aspect_ratio_option']
+            # Find and select the appropriate radio button
+            for btn in self.image_preview.button_group.buttons():
+                if ("crop" in btn.text().lower() and option == "crop") or \
+                   ("stretch" in btn.text().lower() and option == "stretch") or \
+                   ("nothing" in btn.text().lower() and option == "do_nothing"):
+                    btn.setChecked(True)
+                    break
+        
+        if 'darkness_level' in self.cached_data:
+            darkness = self.cached_data['darkness_level']
+            # Find and select the appropriate radio button
+            for btn in self.darken_preview.button_group.buttons():
+                if str(int(darkness * 100)) + "%" in btn.text():
+                    btn.setChecked(True)
+                    break
     
     def set_image(self, image_path):
         """Set the image for both previews"""

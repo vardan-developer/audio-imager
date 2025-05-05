@@ -10,6 +10,7 @@ from alert_window import show_alert
 from image_selector import ImageSelector
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont
 from embed_artwork import embed_artwork
+from cached_data import get_component_cache, update_component_cache
 
 BOTTOM_BAR_HEIGHT = 143
 IMAGE_WIDTH = 800
@@ -38,13 +39,53 @@ def get_data():
         "darkness": None,
         "aspect_ratio": None,
     }
+    
+    # Get the user's home directory for storing cache
+    user_home = os.path.expanduser("~")
+    # Try alternative cache directories if the default one has permission issues
+    cache_dir_options = [
+        os.path.join(user_home, ".audio_imager"),
+        os.path.join(user_home, "AppData", "Local", "audio_imager") if os.name == 'nt' else os.path.join(user_home, ".config", "audio_imager"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+    ]
+    
+    # Try to use the first cache directory that we can write to
+    cache_dir = None
+    for dir_path in cache_dir_options:
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+            test_file = os.path.join(dir_path, ".test_write")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            cache_dir = dir_path
+            break
+        except (IOError, PermissionError) as e:
+            print(f"Cannot use cache directory {dir_path}: {e}")
+    
+    if cache_dir is None:
+        print("WARNING: Could not find a writable cache directory. Caching will be disabled.")
+        cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+    
+    print(f"Using cache directory: {cache_dir}")
+    
+    # Load previously cached values
+    folder_cache = get_component_cache(cache_dir, "FolderPickerDialog")
+    image_cache = get_component_cache(cache_dir, "ImagePickerDialog")
+    title_cache = get_component_cache(cache_dir, "ImageTitleFormatter")
+    bottom_bar_cache = get_component_cache(cache_dir, "BottomBarFormatter")
+    image_selector_cache = get_component_cache(cache_dir, "ImageSelector")
+    
     # Create the folder picker dialog and get the selected folder
-    audio_folder_picker = FolderPickerDialog()
+    audio_folder_picker = FolderPickerDialog(cached_data=folder_cache)
     if audio_folder_picker.exec_() == QDialog.Accepted:
         audio_folder = audio_folder_picker.get_selected_folder()
         if os.path.exists(audio_folder) and os.path.isdir(audio_folder):
             if len([name for name in os.listdir(audio_folder) if name.endswith((".mp3", ".m4a"))]) > 0:
                 data["audio_folder"] = audio_folder
+                # Update cache with selected folder
+                update_component_cache(cache_dir, "FolderPickerDialog", {"selected_folder": audio_folder})
             else:
                 show_alert("No audio files found in the selected folder")
                 sys.exit()
@@ -56,11 +97,13 @@ def get_data():
         sys.exit()
     
     # Create the image picker dialog and get the selected image
-    image_picker = ImagePickerDialog()
+    image_picker = ImagePickerDialog(cached_data=image_cache)
     if image_picker.exec_() == QDialog.Accepted:
         image_path = image_picker.get_selected_image()
         if os.path.exists(image_path) and os.path.isfile(image_path) and image_path.endswith(("png", "jpg", "jpeg")):
             data["image_path"] = image_path
+            # Update cache with selected image
+            update_component_cache(cache_dir, "ImagePickerDialog", {"selected_image": image_path})
         else:
             show_alert("Invalid image path")
             sys.exit()
@@ -68,35 +111,40 @@ def get_data():
         # show_alert("No image selected")
         sys.exit()
 
-    # Create the font style selector, text location selector, color picker, and image preview for slected crop method defined in image_preview.py and image darkener defined in darken_preview.py all these in a single window
-    image_title_formatter = ImageTitleFormatter()
+    # Create the font style selector, text location selector, color picker
+    image_title_formatter = ImageTitleFormatter(cached_data=title_cache)
     image_title_formatter.show()
     
     if image_title_formatter.exec_() == QDialog.Accepted:
         title_data = image_title_formatter.get_all_data()
         data["title"] = title_data
+        # Update cache with title formatter settings
+        update_component_cache(cache_dir, "ImageTitleFormatter", title_data)
     else:
         sys.exit()
     
     # Create the bottom bar formatter
-    bottom_bar_formatter = BottomBarFormatter()
+    bottom_bar_formatter = BottomBarFormatter(cached_data=bottom_bar_cache)
     bottom_bar_formatter.show()
     if bottom_bar_formatter.exec_() == QDialog.Accepted:
         bottom_bar_data = bottom_bar_formatter.get_all_data()
         data["bottom_bar"] = bottom_bar_data
+        # Update cache with bottom bar formatter settings
+        update_component_cache(cache_dir, "BottomBarFormatter", bottom_bar_data)
     else:
         sys.exit()
 
-    # Create the darkner and image preview
-    image_selector = ImageSelector(data["image_path"])
+    # Create the darkener and image preview
+    image_selector = ImageSelector(data["image_path"], cached_data=image_selector_cache)
     image_selector.show()
     if image_selector.exec_() == QDialog.Accepted:
         image_selector_data = image_selector.get_all_data()
         data["darkness"] = image_selector_data["darkness_level"]
         data["aspect_ratio"] = image_selector_data["aspect_ratio_option"]
+        # Update cache with image selector settings
+        update_component_cache(cache_dir, "ImageSelector", image_selector_data)
     else:
         sys.exit()
-
 
     return data
 
@@ -366,7 +414,7 @@ def get_casing_text(text, casing):
 
 if __name__ == "__main__":
     data = get_data()
-    print(data)
+    # print(data)
     # data = {
     #     'audio_folder': '/Users/vardan/Code/fiverr/Xjhon/audio-imager/dummy_data',
     #     'image_path': '/Users/vardan/Code/fiverr/Xjhon/audio-imager/program-files/test.jpg', 

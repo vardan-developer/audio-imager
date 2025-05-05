@@ -10,10 +10,11 @@ class BottomBarFormatter(QDialog):
     # Signal to emit the data when OK is clicked
     dataReady = pyqtSignal(dict)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, cached_data=None):
         super().__init__(parent)
         self.setWindowTitle("Bottom Bar Formatter")
         self.setMinimumSize(900, 700)  # Set a reasonable minimum size
+        self.cached_data = cached_data
         self.initUI()
         
     def initUI(self):
@@ -40,7 +41,7 @@ class BottomBarFormatter(QDialog):
         font_label.setFont(QFont("Arial", 12, QFont.Bold))
         components_layout.addWidget(font_label)
         
-        self.font_selector = FontStyleSelector()
+        self.font_selector = FontStyleSelector(cached_data=self.cached_data)
         components_layout.addWidget(self.font_selector)
         
         # Add separator
@@ -64,7 +65,7 @@ class BottomBarFormatter(QDialog):
         """)
         components_layout.addWidget(self.random_color_checkbox)
         
-        self.color_picker = ColorPicker()
+        self.color_picker = ColorPicker(cached_data=self.cached_data)
         components_layout.addWidget(self.color_picker)
         
         # Add the components frame to main layout
@@ -125,6 +126,55 @@ class BottomBarFormatter(QDialog):
         # Store initial values for reset
         self.initial_color = QColor("#FF0000")  # Default red color
         self.initial_font = self.font_selector.get_current_font()
+        
+        # Apply cached settings
+        if self.cached_data:
+            self.apply_cached_settings()
+    
+    def apply_cached_settings(self):
+        """Apply cached settings to UI elements"""
+        if not self.cached_data:
+            return
+        
+        print(f"Applying cached settings to BottomBarFormatter: {self.cached_data}")    
+        # Set random color checkbox if available
+        if "random_color" in self.cached_data:
+            self.random_color_checkbox.setChecked(self.cached_data["random_color"])
+            
+        # Set color if available and not using random color
+        if "color" in self.cached_data and not self.random_color_checkbox.isChecked():
+            try:
+                color = QColor(self.cached_data["color"])
+                if color.isValid():
+                    self.color_picker.onColorSelected(color)
+                    print(f"Set color to {color.name()}")
+            except Exception as e:
+                print(f"Error setting color: {e}")
+            
+        # Set font settings if available
+        if "font_family" in self.cached_data:
+            # Find the family in the combobox and select it
+            index = self.font_selector.family_combo.findText(self.cached_data["font_family"])
+            if index >= 0:
+                self.font_selector.family_combo.setCurrentIndex(index)
+                print(f"Set font family to index {index}: {self.cached_data['font_family']}")
+        
+        if "font_size" in self.cached_data:
+            size = self.cached_data["font_size"]
+            print(f"Setting font size to {size}")
+            self.font_selector.size_spin.setValue(size)
+            
+        if "word_spacing" in self.cached_data:
+            spacing = self.cached_data["word_spacing"]
+            print(f"Setting word spacing to {spacing}")
+            self.font_selector.spacing_spin.setValue(spacing)
+            
+        if "casing" in self.cached_data:
+            casing = self.cached_data["casing"]
+            print(f"Setting casing to {casing}")
+            index = self.font_selector.casing_combo.findText(casing)
+            if index >= 0:
+                self.font_selector.casing_combo.setCurrentIndex(index)
     
     def reset_all(self):
         """Reset all components to their initial values"""
@@ -144,6 +194,7 @@ class BottomBarFormatter(QDialog):
     def get_all_data(self):
         """Collect and return all the current settings"""
         data = {
+            'random_color': self.random_color_checkbox.isChecked(),
             'color': "random" if self.random_color_checkbox.isChecked() else self.color_picker.getColor().name(),
             'font_family': self.font_selector.get_current_font()['path'],
             'font_size': self.font_selector.get_current_font()['size'],

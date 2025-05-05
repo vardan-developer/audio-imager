@@ -86,7 +86,7 @@ class ColorSpectrum(QFrame):
 class ColorPicker(QWidget):
     colorChanged = pyqtSignal(QColor)
     
-    def __init__(self, cached_data = None):
+    def __init__(self, cached_data=None):
         super().__init__()
         self.cached_data = cached_data
         self.initUI()
@@ -130,11 +130,20 @@ class ColorPicker(QWidget):
         self.preview_bar = ColorPreviewBar()
         layout.addWidget(self.preview_bar)
         
-        # Set initial color
-        if self.cached_data and "color" in self.cached_data:
-            self.current_color = QColor(self.cached_data["color"])
+        # Set initial color from cache if available
+        if self.cached_data and "color" in self.cached_data and self.cached_data["color"] != "random":
+            try:
+                print(f"ColorPicker using cached color: {self.cached_data['color']}")
+                self.current_color = QColor(self.cached_data["color"])
+                if not self.current_color.isValid():
+                    print(f"Invalid color in cache: {self.cached_data['color']}, using default")
+                    self.current_color = QColor("#FF0000")  # Fallback to red
+            except Exception as e:
+                print(f"Error setting cached color: {e}")
+                self.current_color = QColor("#FF0000")  # Fallback to red
         else:
-            self.current_color = QColor("#FF0000")
+            self.current_color = QColor("#FF0000")  # Default to red
+            
         self.updateHexInput(self.current_color)
         self.preview_bar.setColor(self.current_color)
         

@@ -4,10 +4,16 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QVBoxLayout,
 from PyQt5.QtCore import Qt
 
 class FolderPickerDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, cached_data=None):
         super().__init__(parent)
         self.selected_folder = ""
+        self.cached_data = cached_data
         self.init_ui()
+        
+        # Apply cached data if available
+        if self.cached_data and "selected_folder" in self.cached_data:
+            self.folder_path.setText(self.cached_data["selected_folder"])
+            self.selected_folder = self.cached_data["selected_folder"]
         
     def init_ui(self):
         # Set window title and size

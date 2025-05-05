@@ -4,10 +4,16 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QVBoxLayout,
 from PyQt5.QtCore import Qt
 
 class ImagePickerDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, cached_data=None):
         super().__init__(parent)
         self.selected_image = ""
+        self.cached_data = cached_data
         self.init_ui()
+        
+        # Apply cached data if available
+        if self.cached_data and "selected_image" in self.cached_data:
+            self.image_path.setText(self.cached_data["selected_image"])
+            self.selected_image = self.cached_data["selected_image"]
         
     def init_ui(self):
         # Set window title and size

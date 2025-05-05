@@ -11,11 +11,15 @@ class TextPositionSelector(QWidget):
     """
     positionChanged = pyqtSignal(dict)  # Signal emitted when position settings change
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, cached_data = None):
         super().__init__(parent)
-        
+        self.cached_data = cached_data
         # Initialize UI
         self._init_ui()
+        
+        # Apply cached settings if available
+        if self.cached_data and "position" in self.cached_data:
+            self.apply_cached_settings()
         
     def _init_ui(self):
         """Initialize the UI components"""
@@ -76,7 +80,9 @@ class TextPositionSelector(QWidget):
                 radio = QRadioButton()
                 
                 # Set the top-left position as default
-                if row == 0 and col == 0:
+                if (self.cached_data and "position" in self.cached_data and self.cached_data["position"] == (row, col)):
+                    radio.setChecked(True)
+                elif (row == 0 and col == 0):
                     radio.setChecked(True)
                 
                 self.preset_positions.addButton(radio, position_id)
@@ -175,4 +181,41 @@ class TextPositionSelector(QWidget):
                 'type': 'custom',
                 'left': left,
                 'top': top
-            } 
+            }
+
+    def apply_cached_settings(self):
+        """Apply cached position settings"""
+        if not self.cached_data or "position" not in self.cached_data:
+            return
+        
+        pos_data = self.cached_data["position"]
+        print(f"Applying cached position settings: {pos_data}")
+        
+        if "type" in pos_data:
+            # Select the appropriate radio button
+            if pos_data["type"] == "preset":
+                self.preset_radio.setChecked(True)
+                
+                # Find and select the button for the preset position
+                if "preset_id" in pos_data:
+                    preset_id = int(pos_data["preset_id"])
+                    btn = self.preset_positions.button(preset_id)
+                    if btn:
+                        btn.setChecked(True)
+                        print(f"Set preset position id to {preset_id}")
+                elif "row" in pos_data and "col" in pos_data:
+                    row = int(pos_data["row"])
+                    col = int(pos_data["col"])
+                    preset_id = row * 3 + col + 1
+                    btn = self.preset_positions.button(preset_id)
+                    if btn:
+                        btn.setChecked(True)
+                        print(f"Set preset position from row/col: {preset_id}")
+            
+            elif pos_data["type"] == "custom":
+                self.custom_radio.setChecked(True)
+                
+                if "left" in pos_data:
+                    self.left_spin.setValue(int(pos_data["left"]))
+                if "top" in pos_data:
+                    self.top_spin.setValue(int(pos_data["top"])) 

@@ -10,10 +10,11 @@ class ImageTitleFormatter(QDialog):
     # Signal to emit the data when OK is clicked
     dataReady = pyqtSignal(dict)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, cached_data=None):
         super().__init__(parent)
         self.setWindowTitle("Podcast Title Formatter")
         self.setMinimumSize(900, 700)  # Set a reasonable minimum size
+        self.cached_data = cached_data
         self.initUI()
         
     def initUI(self):
@@ -48,7 +49,7 @@ class ImageTitleFormatter(QDialog):
         color_label.setFont(QFont("Arial", 12, QFont.Bold))
         left_layout.addWidget(color_label)
         
-        self.color_picker = ColorPicker()
+        self.color_picker = ColorPicker(cached_data=self.cached_data)
         left_layout.addWidget(self.color_picker)
         left_layout.addStretch()
         
@@ -69,7 +70,7 @@ class ImageTitleFormatter(QDialog):
         font_label.setFont(QFont("Arial", 12, QFont.Bold))
         right_layout.addWidget(font_label)
         
-        self.font_selector = FontStyleSelector()
+        self.font_selector = FontStyleSelector(cached_data=self.cached_data)
         right_layout.addWidget(self.font_selector)
         
         # Add some spacing between components
@@ -83,7 +84,7 @@ class ImageTitleFormatter(QDialog):
         position_label.setFont(QFont("Arial", 12, QFont.Bold))
         right_layout.addWidget(position_label)
         
-        self.position_selector = TextPositionSelector()
+        self.position_selector = TextPositionSelector(cached_data=self.cached_data)
         right_layout.addWidget(self.position_selector)
         right_layout.addStretch()
         
@@ -150,6 +151,56 @@ class ImageTitleFormatter(QDialog):
         self.initial_color = QColor("#FF0000")  # Default red color
         self.initial_font = self.font_selector.get_current_font()
         self.initial_position = self.position_selector.get_current_position()
+        
+        # Apply cached settings if available
+        if self.cached_data:
+            self.apply_cached_settings()
+            
+    def apply_cached_settings(self):
+        """Apply cached settings to UI components"""
+        if not self.cached_data:
+            return
+            
+        print(f"Applying cached settings to ImageTitleFormatter: {self.cached_data}")
+            
+        # Apply color if available
+        if "color" in self.cached_data:
+            color = QColor(self.cached_data["color"])
+            self.color_picker.onColorSelected(color)
+        
+        # Note: Font settings are now handled directly by FontStyleSelector's apply_cached_settings method
+        # since we pass the cached_data to it during initialization
+            
+        # Apply position settings if available
+        if "position" in self.cached_data and isinstance(self.cached_data["position"], dict):
+            pos_data = self.cached_data["position"]
+            
+            # Handle preset positions
+            if "type" in pos_data and pos_data["type"] == "preset":
+                self.position_selector.preset_radio.setChecked(True)
+                
+                # Find and select the button for the preset position
+                if "preset_id" in pos_data:
+                    btn = self.position_selector.preset_positions.button(pos_data["preset_id"])
+                    if btn:
+                        btn.setChecked(True)
+                        print(f"Set preset position id: {pos_data['preset_id']}")
+                # Alternative using row/col if preset_id is not available
+                elif "row" in pos_data and "col" in pos_data:
+                    preset_id = pos_data["row"] * 3 + pos_data["col"] + 1
+                    btn = self.position_selector.preset_positions.button(preset_id)
+                    if btn:
+                        btn.setChecked(True)
+                        print(f"Set preset position from row/col: {preset_id}")
+            
+            # Handle custom positions
+            elif "type" in pos_data and pos_data["type"] == "custom":
+                self.position_selector.custom_radio.setChecked(True)
+                
+                if "left" in pos_data:
+                    self.position_selector.left_spin.setValue(pos_data["left"])
+                if "top" in pos_data:
+                    self.position_selector.top_spin.setValue(pos_data["top"])
     
     def reset_all(self):
         """Reset all components to their initial values"""
